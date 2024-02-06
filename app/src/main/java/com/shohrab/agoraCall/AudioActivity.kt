@@ -162,7 +162,7 @@ private fun RemoteView(remoteListInfo: Map<Int, TextureView?>, mEngine: RtcEngin
 
 fun initAudioEngine(current: Context, eventHandler: IRtcEngineEventHandler, channelName: String, userRole: String): RtcEngine =
     RtcEngine.create(current, APP_ID, eventHandler).apply {
-        enableVideo()
+       // enableVideo()
         setChannelProfile(1)
         if (userRole == "Broadcaster") {
             setClientRole(1)

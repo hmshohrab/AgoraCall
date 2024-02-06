@@ -117,7 +117,7 @@ private fun InputFields() {
         }
     }
 
-    Spacer(modifier = Modifier.height(80.dp))
+    Spacer(modifier = Modifier.height(30.dp))
 
     Button(
         onClick = {
@@ -131,8 +131,26 @@ private fun InputFields() {
             vertical = 10.dp
         )
     ) {
-        Icon(Icons.Filled.ArrowForward, contentDescription = "Join", modifier = Modifier.size(24.dp))
+        Icon(Icons.Filled.ArrowForward, contentDescription = "Video", modifier = Modifier.size(24.dp))
         Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
-        Text(text = "Join", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        Text(text = "Video", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+    }
+    Spacer(modifier = Modifier.height(80.dp))
+
+    Button(
+        onClick = {
+            val intent = Intent(context, AudioActivity::class.java)
+            intent.putExtra("ChannelName", channelNameState.value.text)
+            intent.putExtra("UserRole", selectedOption)
+            ContextCompat.startActivity(context, intent, Bundle())
+        },
+        contentPadding = PaddingValues(
+            horizontal = 20.dp,
+            vertical = 10.dp
+        )
+    ) {
+        Icon(Icons.Filled.ArrowForward, contentDescription = "Audio", modifier = Modifier.size(24.dp))
+        Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
+        Text(text = "Audio", fontWeight = FontWeight.Bold, fontSize = 18.sp)
     }
 }
