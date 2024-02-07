@@ -72,7 +72,7 @@ class AudioActivity : ComponentActivity() {
                     permissions = permissions,
                     onPermissionGranted = {
                         if (channelName != null && userRole != null) {
-                            CallScreen(channelName = channelName, userRole = userRole)
+                            AudioCallScreen(channelName = channelName, userRole = userRole)
                         }
                     },
                     onPermissionDenied = {
@@ -85,7 +85,7 @@ class AudioActivity : ComponentActivity() {
 }
 
 @Composable
-private fun CallScreen(channelName: String, userRole: String) {
+private fun AudioCallScreen(channelName: String, userRole: String) {
     val context = LocalContext.current
 
     val localSurfaceView: TextureView? by remember {
