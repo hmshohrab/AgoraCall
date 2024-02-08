@@ -68,5 +68,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     implementation("androidx.compose.material:material-icons-extended")
-    implementation ("io.agora.rtc:full-sdk:3.5.0")
+    implementation ("io.agora.rtc:full-sdk:4.2.3")
+
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }

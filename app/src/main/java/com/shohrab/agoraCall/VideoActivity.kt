@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
+import android.view.SurfaceView
 import android.view.TextureView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -14,37 +15,61 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.rounded.CallEnd
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.MicOff
+import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.rounded.VideocamOff
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.app.ActivityCompat.requestPermissions
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.app.ActivityCompat.requestPermissions
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
-import io.agora.rtc.Constants
-import io.agora.rtc.IRtcEngineEventHandler
-import io.agora.rtc.RtcEngine
-import io.agora.rtc.video.VideoCanvas
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
+import io.agora.rtc2.Constants.RENDER_MODE_FIT
+import io.agora.rtc2.Constants.RENDER_MODE_HIDDEN
+import io.agora.rtc2.IRtcEngineEventHandler
+import io.agora.rtc2.RtcEngine
+import io.agora.rtc2.video.VideoCanvas
 
 
-const val APP_ID = "c756caed1a4d4cde982f89612af00ae4"
+const val APP_ID = "14d46377a63243d9b4ce8e82783afe9b"
 
-val token = "007eJxTYKiqXarXs1jupCPD5AMfdu1zirtsLsDXxnnPTY1Daa3gI3cFhmRzU7PkxNQUw0STFJPklFRLC6M0C0szQ6PENAODxFSTxPxDqQ2BjAxVHrMZGKEQxGdhSEnNzWdgAADPJR3E"
+val token =
+    "007eJxTYLi+u121bC7/K17/9QGu6V9/B5if6zugPPl3wOXtszrVAk0VGAxNUkzMjM3NE82MjUyMUyyTTJJTLVItjMwtjBPTUi2TRKYdSW0IZGQw2szAwAiFID4LQ0pqbj4DAwBibB8q"
 private const val PERMISSION_REQ_ID = 22
 
 // Ask for Android device permissions at runtime.
@@ -54,8 +79,11 @@ private val REQUESTED_PERMISSIONS = arrayOf<String>(
     Manifest.permission.CAMERA,
     Manifest.permission.WRITE_EXTERNAL_STORAGE
 )
-private val permissions = arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA,Manifest.permission.BLUETOOTH_CONNECT,
-    )
+private val permissions = arrayOf(
+    Manifest.permission.RECORD_AUDIO,
+    Manifest.permission.CAMERA,
+    Manifest.permission.BLUETOOTH_CONNECT,
+)
 
 class VideoActivity : ComponentActivity() {
 
@@ -70,13 +98,13 @@ class VideoActivity : ComponentActivity() {
         val userRole = intent.getStringExtra("UserRole")
 
         setContent {
-            Scaffold{
+            Scaffold {
                 UIRequirePermissions(
                     modifier = Modifier.padding(it),
                     permissions = permissions,
                     onPermissionGranted = {
                         if (channelName != null && userRole != null) {
-                            CallScreen(channelName = channelName, userRole = userRole)
+                            VideoCallScreen(channelName = channelName, userRole = userRole)
                         }
                     },
                     onPermissionDenied = {
@@ -89,15 +117,17 @@ class VideoActivity : ComponentActivity() {
 }
 
 @Composable
-private fun CallScreen(channelName: String, userRole: String) {
+private fun VideoCallScreen(channelName: String, userRole: String) {
     val context = LocalContext.current
+    val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
 
-    val localSurfaceView: TextureView? by remember {
-        mutableStateOf(RtcEngine.CreateTextureView(context))
+
+    val localSurfaceView: SurfaceView? by remember {
+        mutableStateOf( SurfaceView(context))
     }
 
     var remoteUserMap by remember {
-        mutableStateOf(mapOf<Int, TextureView?>())
+        mutableStateOf(mapOf<Int, SurfaceView?>())
     }
 
     val mEngine = remember {
@@ -123,8 +153,28 @@ private fun CallScreen(channelName: String, userRole: String) {
 
         }, channelName, userRole)
     }
-    if(userRole == "Broadcaster") {
-        mEngine.setupLocalVideo(VideoCanvas(localSurfaceView, Constants.RENDER_MODE_FIT, 0))
+    // If `lifecycleOwner` changes, dispose and reset the effect
+    DisposableEffect(lifecycleOwner) {
+        // Create an observer that triggers our remembered callbacks
+        // for sending analytics events
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) {
+                // currentOnStart()
+            } else if (event == Lifecycle.Event.ON_STOP) {
+                mEngine.leaveChannel();
+            }
+        }
+
+        // Add the observer to the lifecycle
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        // When the effect leaves the Composition, remove the observer
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+    if (userRole == "Broadcaster") {
+        mEngine.setupLocalVideo(VideoCanvas(localSurfaceView, RENDER_MODE_FIT, 0))
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -138,7 +188,7 @@ private fun CallScreen(channelName: String, userRole: String) {
 }
 
 @Composable
-private fun RemoteView(remoteListInfo: Map<Int, TextureView?>, mEngine: RtcEngine) {
+private fun RemoteView(remoteListInfo: Map<Int, SurfaceView?>, mEngine: RtcEngine) {
     val context = LocalContext.current
     Row(
         modifier = Modifier
@@ -147,24 +197,35 @@ private fun RemoteView(remoteListInfo: Map<Int, TextureView?>, mEngine: RtcEngin
             .horizontalScroll(state = rememberScrollState())
     ) {
         remoteListInfo.forEach { entry ->
-            val remoteTextureView =
-                RtcEngine.CreateTextureView(context).takeIf { entry.value == null }?:entry.value
+            // Create a new SurfaceView
+            val remoteSurfaceView = SurfaceView(context).takeIf { entry.value == null } ?: entry.value
+            remoteSurfaceView?.setZOrderMediaOverlay(true)
+            // Create a VideoCanvas using the remoteSurfaceView
+
+
+           // val remoteTextureView = RtcEngine.CreateTextureView(context).takeIf { entry.value == null } ?: entry.value
+
             AndroidView(
-                factory = { remoteTextureView!! },
+                factory = { remoteSurfaceView!! },
                 modifier = Modifier.size(Dp(180f), Dp(240f))
             )
+            val videoCanvas = VideoCanvas(
+                remoteSurfaceView,
+                RENDER_MODE_HIDDEN, entry.key
+            )
             mEngine.setupRemoteVideo(
-                VideoCanvas(
-                    remoteTextureView,
-                    Constants.RENDER_MODE_HIDDEN,
-                    entry.key
-                )
+                videoCanvas
             )
         }
     }
 }
 
-fun initVideoEngine(current: Context, eventHandler: IRtcEngineEventHandler, channelName: String, userRole: String): RtcEngine =
+fun initVideoEngine(
+    current: Context,
+    eventHandler: IRtcEngineEventHandler,
+    channelName: String,
+    userRole: String
+): RtcEngine =
     RtcEngine.create(current, APP_ID, eventHandler).apply {
         enableVideo()
         setChannelProfile(1)
@@ -183,12 +244,14 @@ private fun UserControls(mEngine: RtcEngine) {
     val activity = (LocalContext.current as? Activity)
 
     Row(
-        modifier = Modifier.fillMaxSize().padding(bottom = 50.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 50.dp),
         Arrangement.SpaceEvenly,
         Alignment.Bottom
     ) {
         OutlinedButton(
-            onClick = { 
+            onClick = {
                 muted = !muted
                 mEngine.muteLocalAudioStream(muted)
             },
@@ -196,9 +259,13 @@ private fun UserControls(mEngine: RtcEngine) {
             modifier = Modifier.size(50.dp),
             contentPadding = PaddingValues(0.dp),
             colors = ButtonDefaults.outlinedButtonColors(containerColor = if (muted) Color.Blue else Color.White)
-            ) {
+        ) {
             if (muted) {
-                Icon(Icons.Rounded.MicOff, contentDescription = "Tap to unmute mic", tint = Color.White)
+                Icon(
+                    Icons.Rounded.MicOff,
+                    contentDescription = "Tap to unmute mic",
+                    tint = Color.White
+                )
             } else {
                 Icon(Icons.Rounded.Mic, contentDescription = "Tap to mute mic", tint = Color.Blue)
             }
@@ -213,7 +280,11 @@ private fun UserControls(mEngine: RtcEngine) {
             contentPadding = PaddingValues(0.dp),
             colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.Red)
         ) {
-            Icon(Icons.Rounded.CallEnd, contentDescription = "Tap to disconnect Call", tint = Color.White)
+            Icon(
+                Icons.Rounded.CallEnd,
+                contentDescription = "Tap to disconnect Call",
+                tint = Color.White
+            )
 
         }
         OutlinedButton(
@@ -227,13 +298,22 @@ private fun UserControls(mEngine: RtcEngine) {
             colors = ButtonDefaults.outlinedButtonColors(containerColor = if (videoDisabled) Color.Blue else Color.White)
         ) {
             if (videoDisabled) {
-                Icon(Icons.Rounded.VideocamOff, contentDescription = "Tap to enable Video", tint = Color.White)
+                Icon(
+                    Icons.Rounded.VideocamOff,
+                    contentDescription = "Tap to enable Video",
+                    tint = Color.White
+                )
             } else {
-                Icon(Icons.Rounded.Videocam, contentDescription = "Tap to disable Video", tint = Color.Blue)
+                Icon(
+                    Icons.Rounded.Videocam,
+                    contentDescription = "Tap to disable Video",
+                    tint = Color.Blue
+                )
             }
         }
     }
 }
+
 @Composable
 private fun AlertScreen(requester: () -> Unit) {
     val context = LocalContext.current
@@ -264,7 +344,7 @@ private fun AlertScreen(requester: () -> Unit) {
  */
 @Composable
 private fun UIRequirePermissions(
-    modifier: Modifier= Modifier,
+    modifier: Modifier = Modifier,
     permissions: Array<String>,
     onPermissionGranted: @Composable () -> Unit,
     onPermissionDenied: @Composable (requester: () -> Unit) -> Unit
