@@ -10,20 +10,20 @@
               <deviceKey>
                 <Key>
                   <type value="VIRTUAL_DEVICE_PATH" />
-                  <value value="C:\Users\sohorab\.android\avd\Pixel_5_API_33.avd" />
+                  <value value="$USER_HOME$/.android/avd/My_Pixel_4_Tiramisu.avd" />
                 </Key>
               </deviceKey>
             </Target>
           </runningDeviceTargetSelectedWithDropDown>
-          <timeTargetWasSelectedWithDropDown value="2024-02-08T11:15:40.658966500Z" />
+          <timeTargetWasSelectedWithDropDown value="2024-02-09T17:32:37.293642Z" />
           <multipleDevicesSelectedInDropDown value="true" />
           <runningDeviceTargetsSelectedWithDialog>
             <Target>
               <type value="RUNNING_DEVICE_TARGET" />
               <deviceKey>
                 <Key>
-                  <type value="VIRTUAL_DEVICE_PATH" />
-                  <value value="C:\Users\sohorab\.android\avd\Pixel_5_API_33.avd" />
+                  <type value="SERIAL_NUMBER" />
+                  <value value="192.168.0.102:5555" />
                 </Key>
               </deviceKey>
             </Target>

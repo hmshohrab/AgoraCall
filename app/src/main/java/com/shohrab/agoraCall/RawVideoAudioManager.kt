@@ -9,8 +9,9 @@ import io.agora.rtc2.video.IVideoFrameObserver
 import java.nio.ByteBuffer
 
 
-class RawVideoAudioManager(context: Context?) : AuthenticationManager(context) {
+class RawVideoAudioManager(context: Context) : AuthenticationManager(context) {
     private var isZoomed = false
+
     // Set the format of the captured raw audio data.
     private val sampleRate = 16000
     private val numberOfChannels = 1
@@ -99,19 +100,19 @@ class RawVideoAudioManager(context: Context?) : AuthenticationManager(context) {
         }
 
         override fun getRecordAudioParams(): AudioParams {
-            return AudioParams(sampleRate,numberOfChannels, 0 ,samplesPerCall)
+            return AudioParams(sampleRate, numberOfChannels, 0, samplesPerCall)
         }
 
         override fun getPlaybackAudioParams(): AudioParams {
-            return AudioParams(sampleRate,numberOfChannels, 0 ,samplesPerCall)
+            return AudioParams(sampleRate, numberOfChannels, 0, samplesPerCall)
         }
 
         override fun getMixedAudioParams(): AudioParams {
-            return AudioParams(sampleRate,numberOfChannels, 0 ,samplesPerCall)
+            return AudioParams(sampleRate, numberOfChannels, 0, samplesPerCall)
         }
 
         override fun getEarMonitoringAudioParams(): AudioParams {
-            return AudioParams(sampleRate,numberOfChannels, 0 ,samplesPerCall)
+            return AudioParams(sampleRate, numberOfChannels, 0, samplesPerCall)
         }
     }
 
@@ -183,19 +184,19 @@ class RawVideoAudioManager(context: Context?) : AuthenticationManager(context) {
 
     override fun joinChannel(channelName: String, token: String?): Int {
         // Register the video frame observer
-        agoraEngine!!.registerVideoFrameObserver(iVideoFrameObserver)
+        agoraEngine?.registerVideoFrameObserver(iVideoFrameObserver)
         // Register the audio frame observer
-        agoraEngine!!.registerAudioFrameObserver(iAudioFrameObserver)
+        agoraEngine?.registerAudioFrameObserver(iAudioFrameObserver)
 
-        agoraEngine!!.setRecordingAudioFrameParameters(
+        agoraEngine?.setRecordingAudioFrameParameters(
             sampleRate, numberOfChannels,
             Constants.RAW_AUDIO_FRAME_OP_MODE_READ_WRITE, samplesPerCall
         )
-        agoraEngine!!.setPlaybackAudioFrameParameters(
+        agoraEngine?.setPlaybackAudioFrameParameters(
             sampleRate, numberOfChannels,
             Constants.RAW_AUDIO_FRAME_OP_MODE_READ_WRITE, samplesPerCall
         )
-        agoraEngine!!.setMixedAudioFrameParameters(
+        agoraEngine?.setMixedAudioFrameParameters(
             sampleRate,
             numberOfChannels,
             samplesPerCall
@@ -205,14 +206,22 @@ class RawVideoAudioManager(context: Context?) : AuthenticationManager(context) {
     }
 
     override fun leaveChannel() {
-        agoraEngine!!.registerVideoFrameObserver(null)
-        agoraEngine!!.registerAudioFrameObserver(null)
+        agoraEngine?.registerVideoFrameObserver(null)
+        agoraEngine?.registerAudioFrameObserver(null)
 
         super.leaveChannel()
     }
 
     fun setZoom(enable: Boolean) {
         isZoomed = enable
+    }
+
+    fun muteLocalAudioStream(muted: Boolean) {
+        agoraEngine?.muteLocalAudioStream(muted)
+    }
+
+    fun muteLocalVideoStream(videoDisabled: Boolean) {
+        agoraEngine?.muteLocalVideoStream(videoDisabled)
     }
 
 }

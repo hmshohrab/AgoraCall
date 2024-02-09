@@ -3,17 +3,16 @@ package com.shohrab.agoraCall
 import android.Manifest
 import android.app.Activity
 import android.content.ContentValues.TAG
-import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import android.view.SurfaceView
-import android.view.TextureView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -55,44 +55,29 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat.requestPermissions
 import androidx.core.content.ContextCompat
-import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
-import io.agora.rtc2.Constants.RENDER_MODE_FIT
-import io.agora.rtc2.Constants.RENDER_MODE_HIDDEN
-import io.agora.rtc2.IRtcEngineEventHandler
+import io.agora.rtc2.Constants
 import io.agora.rtc2.RtcEngine
 import io.agora.rtc2.video.VideoCanvas
 
 
-const val APP_ID = "c756caed1a4d4cde982f89612af00ae4"
-
-val token =
-    "007eJxTYPj3p0NKuV3zkEVJzYtrhmv+O0m6Pz9iN4vfJ+NQaG7Qih4FhmRzU7PkxNQUw0STFJPklFRLC6M0C0szQ6PENAODxFST56+PpjYEMjKs/efFxMgAgSA+C0NKam4+AwMAuCkhug=="
 private const val PERMISSION_REQ_ID = 22
 
-// Ask for Android device permissions at runtime.
-private val REQUESTED_PERMISSIONS = arrayOf<String>(
-    Manifest.permission.BLUETOOTH_CONNECT,
-    Manifest.permission.RECORD_AUDIO,
-    Manifest.permission.CAMERA,
-    Manifest.permission.WRITE_EXTERNAL_STORAGE
-)
 private val permissions = arrayOf(
     Manifest.permission.RECORD_AUDIO,
     Manifest.permission.CAMERA,
     Manifest.permission.BLUETOOTH_CONNECT,
 )
 
-class VideoActivity : ComponentActivity() {
+class MyVideoActivity : ComponentActivity() {
+    protected lateinit var agoraManager: AgoraManager
+    protected var forceShowRemoteViews = false
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Turn off the decor fitting system windows, which allows us to handle insets,
-        // including IME animations
-        WindowCompat.setDecorFitsSystemWindows(window, false)
 
         val channelName = intent.getStringExtra("ChannelName")
         val userRole = intent.getStringExtra("UserRole")
@@ -104,7 +89,7 @@ class VideoActivity : ComponentActivity() {
                     permissions = permissions,
                     onPermissionGranted = {
                         if (channelName != null && userRole != null) {
-                            VideoCallScreen(channelName = channelName, userRole = userRole)
+                            MyVideoCallScreen(channelName = channelName, userRole = userRole)
                         }
                     },
                     onPermissionDenied = {
@@ -114,46 +99,59 @@ class VideoActivity : ComponentActivity() {
             }
         }
     }
+
+
 }
 
 @Composable
-private fun VideoCallScreen(channelName: String, userRole: String) {
+private fun MyVideoCallScreen(channelName: String, userRole: String) {
     val context = LocalContext.current
     val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
 
-
-    val localSurfaceView: SurfaceView? by remember {
-        mutableStateOf( SurfaceView(context))
+    var myUid: Int by remember { mutableIntStateOf(0) }
+    var localSurfaceView: SurfaceView by remember {
+        mutableStateOf(SurfaceView(context))
     }
 
     var remoteUserMap by remember {
         mutableStateOf(mapOf<Int, SurfaceView?>())
     }
 
-    val mEngine = remember {
-        initVideoEngine(context, object : IRtcEngineEventHandler() {
-            override fun onJoinChannelSuccess(channel: String?, uid: Int, elapsed: Int) {
-                Log.d(TAG, "channel:$channel,uid:$uid,elapsed:$elapsed")
-            }
 
-            override fun onUserJoined(uid: Int, elapsed: Int) {
-                Log.d(TAG, "onUserJoined:$uid")
-                val desiredUserList = remoteUserMap.toMutableMap()
-                desiredUserList[uid] = null
-                remoteUserMap = desiredUserList.toMap()
-            }
+    val rawVideoAudioManager = remember {
+        RawVideoAudioManager(context).apply {
+            setListener(object : AgoraManager.AgoraManagerListener {
+                override fun onMessageReceived(message: String?) {
+                    //  showMessage(message)
+                }
 
-            override fun onUserOffline(uid: Int, reason: Int) {
-                Log.d(TAG, "onUserOffline:$uid")
-                val desiredUserList = remoteUserMap.toMutableMap()
-                desiredUserList.remove(uid)
-                remoteUserMap = desiredUserList.toMap()
-            }
+                override fun onRemoteUserJoined(remoteUid: Int, surfaceView: SurfaceView?) {
+                    Log.d(TAG, "onUserJoined:$remoteUserMap")
+                    val desiredUserList = remoteUserMap.toMutableMap()
+                    desiredUserList[remoteUid] = surfaceView
+                    remoteUserMap = desiredUserList.toMap()
+                    // showRemoteVideo(remoteUid, surfaceView)
+                }
 
+                override fun onRemoteUserLeft(remoteUid: Int) {
+                    val desiredUserList = remoteUserMap.toMutableMap()
+                    desiredUserList.remove(remoteUid)
+                    remoteUserMap = desiredUserList.toMap()
+                }
 
-        }, channelName, userRole)
+                override fun onJoinChannelSuccess(channel: String?, uid: Int, elapsed: Int) {
+                    myUid = uid
+                }
+
+                override fun onEngineEvent(eventName: String, eventArgs: Map<String, Any>) {
+                    //    handleEngineEvent(eventName, eventArgs)
+                }
+            })
+            joinChannelWithToken()
+            localSurfaceView = localVideo
+
+        }
     }
-    // If `lifecycleOwner` changes, dispose and reset the effect
     DisposableEffect(lifecycleOwner) {
         // Create an observer that triggers our remembered callbacks
         // for sending analytics events
@@ -161,7 +159,7 @@ private fun VideoCallScreen(channelName: String, userRole: String) {
             if (event == Lifecycle.Event.ON_START) {
                 // currentOnStart()
             } else if (event == Lifecycle.Event.ON_STOP) {
-                mEngine.leaveChannel();
+                rawVideoAudioManager.leaveChannel();
             }
         }
 
@@ -173,22 +171,26 @@ private fun VideoCallScreen(channelName: String, userRole: String) {
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
-    if (userRole == "Broadcaster") {
-        mEngine.setupLocalVideo(VideoCanvas(localSurfaceView, RENDER_MODE_HIDDEN, 0))
-    }
-
     Box(Modifier.fillMaxSize()) {
         localSurfaceView?.let { local ->
             AndroidView(factory = { local }, Modifier.fillMaxSize())
         }
-        RemoteView(remoteListInfo = remoteUserMap, mEngine = mEngine)
-        UserControls(mEngine = mEngine)
+        if(remoteUserMap.isNotEmpty()){
+            RemoteView(remoteListInfo = remoteUserMap){
+               val newLocalVideoView = it.value
+                val desiredUserList = remoteUserMap.toMutableMap()
+                desiredUserList[myUid] = localSurfaceView
+                desiredUserList.remove(it.key)
+                remoteUserMap = desiredUserList.toMap()
+                localSurfaceView = newLocalVideoView ?:rawVideoAudioManager.localVideo
+            }
+        }
+     UserControls(rawVideoAudioManager)
     }
 
 }
-
 @Composable
-private fun RemoteView(remoteListInfo: Map<Int, SurfaceView?>, mEngine: RtcEngine) {
+private fun RemoteView(remoteListInfo: Map<Int, SurfaceView?>,onSwap:(entry: Map.Entry<Int, SurfaceView?>)->Unit) {
     val context = LocalContext.current
     Row(
         modifier = Modifier
@@ -203,141 +205,19 @@ private fun RemoteView(remoteListInfo: Map<Int, SurfaceView?>, mEngine: RtcEngin
             // Create a VideoCanvas using the remoteSurfaceView
 
 
-           // val remoteTextureView = RtcEngine.CreateTextureView(context).takeIf { entry.value == null } ?: entry.value
+            // val remoteTextureView = RtcEngine.CreateTextureView(context).takeIf { entry.value == null } ?: entry.value
 
             AndroidView(
                 factory = { remoteSurfaceView!! },
-                modifier = Modifier.size(Dp(112f), Dp(160f))
-            )
-            val videoCanvas = VideoCanvas(
-                remoteSurfaceView,
-                RENDER_MODE_HIDDEN, entry.key
-            )
-            mEngine.setupRemoteVideo(
-                videoCanvas
+                modifier = Modifier.size(Dp(112f), Dp(160f)).clickable {
+                    onSwap(entry)
+                }
             )
         }
     }
 }
 
-private fun initVideoEngine(
-    current: Context,
-    eventHandler: IRtcEngineEventHandler,
-    channelName: String,
-    userRole: String
-): RtcEngine =
-    RtcEngine.create(current, APP_ID, eventHandler).apply {
-        enableVideo()
-        setChannelProfile(1)
-        if (userRole == "Broadcaster") {
-            setClientRole(1)
-        } else {
-            setClientRole(0)
-        }
-        joinChannel(token, channelName, "", 0)
-    }
 
-@Composable
-private fun UserControls(mEngine: RtcEngine) {
-    var muted by remember { mutableStateOf(false) }
-    var videoDisabled by remember { mutableStateOf(false) }
-    val activity = (LocalContext.current as? Activity)
-
-    Row(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(bottom = 50.dp),
-        Arrangement.SpaceEvenly,
-        Alignment.Bottom
-    ) {
-        OutlinedButton(
-            onClick = {
-                muted = !muted
-                mEngine.muteLocalAudioStream(muted)
-            },
-            shape = CircleShape,
-            modifier = Modifier.size(50.dp),
-            contentPadding = PaddingValues(0.dp),
-            colors = ButtonDefaults.outlinedButtonColors(containerColor = if (muted) Color.Blue else Color.White)
-        ) {
-            if (muted) {
-                Icon(
-                    Icons.Rounded.MicOff,
-                    contentDescription = "Tap to unmute mic",
-                    tint = Color.White
-                )
-            } else {
-                Icon(Icons.Rounded.Mic, contentDescription = "Tap to mute mic", tint = Color.Blue)
-            }
-        }
-        OutlinedButton(
-            onClick = {
-                mEngine.leaveChannel()
-                activity?.finish()
-            },
-            shape = CircleShape,
-            modifier = Modifier.size(70.dp),
-            contentPadding = PaddingValues(0.dp),
-            colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.Red)
-        ) {
-            Icon(
-                Icons.Rounded.CallEnd,
-                contentDescription = "Tap to disconnect Call",
-                tint = Color.White
-            )
-
-        }
-        OutlinedButton(
-            onClick = {
-                videoDisabled = !videoDisabled
-                mEngine.muteLocalVideoStream(videoDisabled)
-            },
-            shape = CircleShape,
-            modifier = Modifier.size(50.dp),
-            contentPadding = PaddingValues(0.dp),
-            colors = ButtonDefaults.outlinedButtonColors(containerColor = if (videoDisabled) Color.Blue else Color.White)
-        ) {
-            if (videoDisabled) {
-                Icon(
-                    Icons.Rounded.VideocamOff,
-                    contentDescription = "Tap to enable Video",
-                    tint = Color.White
-                )
-            } else {
-                Icon(
-                    Icons.Rounded.Videocam,
-                    contentDescription = "Tap to disable Video",
-                    tint = Color.Blue
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun AlertScreen(requester: () -> Unit) {
-    val context = LocalContext.current
-
-    Log.d(TAG, "AlertScreen: ")
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(color = Color.Red),
-        contentAlignment = Alignment.Center
-    ) {
-        Button(onClick = {
-            requestPermissions(
-                context as Activity,
-                permissions,
-                22
-            )
-            requester()
-        }) {
-            Icon(Icons.Rounded.Warning, "Permission Required")
-            Text(text = "Permission Required")
-        }
-    }
-}
 
 /**
  * Helper Function for Permission Check
@@ -372,3 +252,107 @@ private fun UIRequirePermissions(
         }
     }
 }
+
+
+@Composable
+private fun AlertScreen(requester: () -> Unit) {
+    val context = LocalContext.current
+
+    Log.d(TAG, "AlertScreen: ")
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(color = Color.Red),
+        contentAlignment = Alignment.Center
+    ) {
+        Button(onClick = {
+            requestPermissions(
+                context as Activity,
+                permissions,
+                22
+            )
+            requester()
+        }) {
+            Icon(Icons.Rounded.Warning, "Permission Required")
+            Text(text = "Permission Required")
+        }
+    }
+}
+
+@Composable
+private fun UserControls(rawVideoAudioManager: RawVideoAudioManager) {
+    var muted by remember { mutableStateOf(false) }
+    var videoDisabled by remember { mutableStateOf(false) }
+    val activity = (LocalContext.current as? Activity)
+
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 50.dp),
+        Arrangement.SpaceEvenly,
+        Alignment.Bottom
+    ) {
+        OutlinedButton(
+            onClick = {
+                muted = !muted
+               rawVideoAudioManager.muteLocalAudioStream(muted)
+            },
+            shape = CircleShape,
+            modifier = Modifier.size(50.dp),
+            contentPadding = PaddingValues(0.dp),
+            colors = ButtonDefaults.outlinedButtonColors(containerColor = if (muted) Color.Blue else Color.White)
+        ) {
+            if (muted) {
+                Icon(
+                    Icons.Rounded.MicOff,
+                    contentDescription = "Tap to unmute mic",
+                    tint = Color.White
+                )
+            } else {
+                Icon(Icons.Rounded.Mic, contentDescription = "Tap to mute mic", tint = Color.Blue)
+            }
+        }
+        OutlinedButton(
+            onClick = {
+                rawVideoAudioManager.leaveChannel()
+                activity?.finish()
+            },
+            shape = CircleShape,
+            modifier = Modifier.size(70.dp),
+            contentPadding = PaddingValues(0.dp),
+            colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.Red)
+        ) {
+            Icon(
+                Icons.Rounded.CallEnd,
+                contentDescription = "Tap to disconnect Call",
+                tint = Color.White
+            )
+
+        }
+        OutlinedButton(
+            onClick = {
+                videoDisabled = !videoDisabled
+             rawVideoAudioManager.muteLocalVideoStream(videoDisabled)
+            },
+            shape = CircleShape,
+            modifier = Modifier.size(50.dp),
+            contentPadding = PaddingValues(0.dp),
+            colors = ButtonDefaults.outlinedButtonColors(containerColor = if (videoDisabled) Color.Blue else Color.White)
+        ) {
+            if (videoDisabled) {
+                Icon(
+                    Icons.Rounded.VideocamOff,
+                    contentDescription = "Tap to enable Video",
+                    tint = Color.White
+                )
+            } else {
+                Icon(
+                    Icons.Rounded.Videocam,
+                    contentDescription = "Tap to disable Video",
+                    tint = Color.Blue
+                )
+            }
+        }
+    }
+}
+

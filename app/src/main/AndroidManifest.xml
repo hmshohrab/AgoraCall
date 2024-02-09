@@ -44,6 +44,8 @@
         </activity>
         <activity android:name="com.shohrab.agoraCall.VideoActivity" />
         <activity android:name="com.shohrab.agoraCall.AudioActivity" />
-    </application>
+         <activity android:name="com.shohrab.agoraCall.RawVideoAudioActivity" />
+         <activity android:name="com.shohrab.agoraCall.MyVideoActivity" />
+     </application>
 
 </manifest>

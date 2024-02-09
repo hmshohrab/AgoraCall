@@ -1,32 +1,34 @@
 package com.shohrab.agoraCall
 
-import io.agora.rtc2.video.VideoCanvas
-import io.agora.rtc2.*
-
 import android.Manifest
 import android.app.Activity
 import android.content.Context
-import org.json.JSONObject
-import org.json.JSONException
-import android.view.SurfaceView
 import android.content.pm.PackageManager
+import android.view.SurfaceView
 import android.view.View
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import io.agora.rtc2.ChannelMediaOptions
+import io.agora.rtc2.Constants
+import io.agora.rtc2.IRtcEngineEventHandler
+import io.agora.rtc2.RtcEngine
+import io.agora.rtc2.RtcEngineConfig
+import io.agora.rtc2.video.VideoCanvas
+import org.json.JSONException
+import org.json.JSONObject
 import java.io.IOException
-import java.lang.Exception
 import java.nio.charset.StandardCharsets
-import java.util.HashSet
 
 open class AgoraManager(context: Context) {
     // The reference to the Android activity you use for video calling
     private val activity: Activity
-    protected val mContext: Context
+    private val mContext: Context
 
     protected var agoraEngine: RtcEngine? = null // The RTCEngine instance
-    protected var mListener: AgoraManagerListener? = null // The event handler for AgoraEngine events
+    protected var mListener: AgoraManagerListener? =
+        null // The event handler for AgoraEngine events
     protected var config: JSONObject? // Configuration parameters from the config.json file
-    protected val appId: String // Your App ID from Agora console
+    private val appId: String // Your App ID from Agora console
     var currentProduct = ProductName.VIDEO_CALLING // The Agora product to test
     var channelName: String // The name of the channel to join
     var localUid: Int // UID of the local user
@@ -47,9 +49,9 @@ open class AgoraManager(context: Context) {
 
     init {
         config = readConfig(context)
-        appId = config!!.optString("appId")
-        channelName = config!!.optString("channelName")
-        localUid = config!!.optInt("uid")
+        appId = config?.optString("appId") ?: ""
+        channelName = config?.optString("channelName") ?: ""
+        localUid = config?.optInt("uid") ?: 0
         mContext = context
         activity = mContext as Activity
         if (!checkSelfPermission()) {
@@ -85,7 +87,7 @@ open class AgoraManager(context: Context) {
             val localSurfaceView = SurfaceView(mContext)
             localSurfaceView.visibility = View.VISIBLE
             // Call setupLocalVideo with a VideoCanvas having uid set to 0.
-            agoraEngine!!.setupLocalVideo(
+            agoraEngine?.setupLocalVideo(
                 VideoCanvas(
                     localSurfaceView,
                     VideoCanvas.RENDER_MODE_HIDDEN,
@@ -104,11 +106,11 @@ open class AgoraManager(context: Context) {
             remoteSurfaceView,
             VideoCanvas.RENDER_MODE_FIT, remoteUid
         )
-        agoraEngine!!.setupRemoteVideo(videoCanvas)
+        agoraEngine?.setupRemoteVideo(videoCanvas)
         // Set the visibility
         remoteSurfaceView.visibility = View.VISIBLE
         // Notify the UI to display the video
-        mListener!!.onRemoteUserJoined(remoteUid, remoteSurfaceView)
+        mListener?.onRemoteUserJoined(remoteUid, remoteSurfaceView)
     }
 
     protected open fun setupAgoraEngine(): Boolean {
@@ -122,7 +124,7 @@ open class AgoraManager(context: Context) {
             // Create an RtcEngine instance
             agoraEngine = RtcEngine.create(config)
             // By default, the video module is disabled, call enableVideo to enable it.
-            agoraEngine!!.enableVideo()
+            agoraEngine?.enableVideo()
         } catch (e: Exception) {
             sendMessage(e.toString())
             return false
@@ -132,7 +134,7 @@ open class AgoraManager(context: Context) {
 
     fun joinChannel(): Int {
         // Use channelName and token from the config file
-        val token = config!!.optString("rtcToken")
+        val token = config?.optString("rtcToken")
         return joinChannel(channelName, token)
     }
 
@@ -169,13 +171,13 @@ open class AgoraManager(context: Context) {
         if (isBroadcaster) { // Broadcasting Host or Video-calling client
             options.clientRoleType = Constants.CLIENT_ROLE_BROADCASTER
             // Start local preview.
-            agoraEngine!!.startPreview()
+            agoraEngine?.startPreview()
         } else { // Audience
             options.clientRoleType = Constants.CLIENT_ROLE_AUDIENCE
         }
 
         // Join the channel with a token.
-        agoraEngine!!.joinChannel(token, channelName, localUid, options)
+        agoraEngine?.joinChannel(token, channelName, localUid, options)
         return 0
     }
 
@@ -184,7 +186,7 @@ open class AgoraManager(context: Context) {
             sendMessage("Join a channel first")
         } else {
             // To leave a channel, call the `leaveChannel` method
-            agoraEngine!!.leaveChannel()
+            agoraEngine?.leaveChannel()
             sendMessage("You left the channel")
 
             // Set the `joined` status to false
@@ -223,7 +225,7 @@ open class AgoraManager(context: Context) {
                 sendMessage("Joined Channel $channel")
                 // Save the uid of the local user.
                 localUid = uid
-                mListener!!.onJoinChannelSuccess(channel, uid, elapsed)
+                mListener?.onJoinChannelSuccess(channel, uid, elapsed)
             }
 
             override fun onUserOffline(uid: Int, reason: Int) {
@@ -231,7 +233,7 @@ open class AgoraManager(context: Context) {
                 // Update the list of remote Uids
                 remoteUids.remove(uid)
                 // Notify the UI
-                mListener!!.onRemoteUserLeft(uid)
+                mListener?.onRemoteUserLeft(uid)
             }
 
             override fun onError(err: Int) {
@@ -271,7 +273,7 @@ open class AgoraManager(context: Context) {
     }
 
     protected fun sendMessage(message: String?) {
-        mListener!!.onMessageReceived(message)
+        mListener?.onMessageReceived(message)
     }
 
 }

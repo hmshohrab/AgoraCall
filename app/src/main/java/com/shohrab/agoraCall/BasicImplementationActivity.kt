@@ -13,10 +13,10 @@ import androidx.activity.ComponentActivity
 
 open class BasicImplementationActivity : ComponentActivity() {
     protected lateinit var agoraManager: AgoraManager
-    protected lateinit var btnJoinLeave: Button
+    //protected lateinit var btnJoinLeave: Button
     protected lateinit var mainFrame: FrameLayout
-    protected lateinit var containerLayout: LinearLayout
-    protected lateinit var radioGroup: RadioGroup
+   // protected lateinit var containerLayout: LinearLayout
+   // protected lateinit var radioGroup: RadioGroup
     protected lateinit var videoFrameMap: MutableMap<Int, FrameLayout?>
     protected var surfaceViewMain: SurfaceView? = null
     protected var forceShowRemoteViews = false
@@ -49,20 +49,20 @@ open class BasicImplementationActivity : ComponentActivity() {
         if (agoraManager.currentProduct === AgoraManager.ProductName.INTERACTIVE_LIVE_STREAMING
             || agoraManager.currentProduct === AgoraManager.ProductName.BROADCAST_STREAMING
         ) {
-            radioGroup.visibility = View.VISIBLE
+            //radioGroup.visibility = View.VISIBLE
             // Hide the horizontal scrolling video view
             // findViewById<View>(R.id.smallVideosView).visibility = View.GONE
         } else {
-            radioGroup.visibility = View.GONE
+           // radioGroup.visibility = View.GONE
         }
-        radioGroup.setOnCheckedChangeListener { _: RadioGroup?, checkedId: Int ->
+/*        radioGroup.setOnCheckedChangeListener { _: RadioGroup?, checkedId: Int ->
             agoraManager.setBroadcasterRole(
                 true
             )
-            /*    agoraManager.setBroadcasterRole(
+            *//*    agoraManager.setBroadcasterRole(
                     checkedId == R.id.radioButtonBroadcaster
-                )*/
-        }
+                )*//*
+        }*/
     }
 
     protected open fun initializeAgoraManager() {
@@ -97,10 +97,10 @@ open class BasicImplementationActivity : ComponentActivity() {
         agoraManager.leaveChannel()
         // Update the UI
         // btnJoinLeave.text = getString(R.string.join)
-        if (radioGroup.visibility != View.GONE) radioGroup.visibility = View.VISIBLE
+        //if (radioGroup.visibility != View.GONE) radioGroup.visibility = View.VISIBLE
 
         // Clear the video containers
-        containerLayout.removeAllViews()
+        ///containerLayout.removeAllViews()
         mainFrame.removeAllViews()
         videoFrameMap.clear()
     }
@@ -135,12 +135,11 @@ open class BasicImplementationActivity : ComponentActivity() {
 
             override fun onJoinChannelSuccess(channel: String?, uid: Int, elapsed: Int) {
                 runOnUiThread {
-                    btnJoinLeave.text = "Leave"
+                    //btnJoinLeave.text = "Leave"
                     // Start showing the local video
                     showLocalVideo()
                     // Hide radio buttons
-                    if (radioGroup.visibility != View.GONE) radioGroup.visibility =
-                        View.INVISIBLE
+                  //  if (radioGroup.visibility != View.GONE) radioGroup.visibility =View.INVISIBLE
                 }
             }
 
@@ -177,7 +176,7 @@ open class BasicImplementationActivity : ComponentActivity() {
                 // Set the id for the new FrameLayout
                 targetLayout.id = View.generateViewId()
                 // Add the new FrameLayout to the parent LinearLayout
-                containerLayout.addView(targetLayout, layoutParams)
+                //containerLayout.addView(targetLayout, layoutParams)
             } else if (!agoraManager.isBroadcaster) {
                 // Use the main frame
                 targetLayout = mainFrame
@@ -207,12 +206,12 @@ open class BasicImplementationActivity : ComponentActivity() {
                     swapVideo(videoFrameMap[agoraManager.localUid]!!.id)
                     // Remove the FrameLayout from the LinearLayout
                     val frameLayoutToDelete = videoFrameMap[remoteUid]
-                    containerLayout.removeView(frameLayoutToDelete)
+                    //containerLayout.removeView(frameLayoutToDelete)
                 } else {
                     mainFrame.removeView(surfaceViewMain)
                 }
             } else {
-                containerLayout.removeView(frameLayoutOfUser)
+               // containerLayout.removeView(frameLayoutOfUser)
             }
             videoFrameMap.remove(remoteUid)
         }

@@ -14,8 +14,8 @@ import java.io.IOException
 import java.net.MalformedURLException
 import java.net.URL
 
-open class AuthenticationManager(context: Context?) : AgoraManager(
-    context!!
+open class AuthenticationManager(context: Context) : AgoraManager(
+    context
 ) {
     var serverUrl: String // The base URL to your token server
     private val tokenExpiryTime: Int // Time in seconds after which the token will expire.
@@ -29,8 +29,8 @@ open class AuthenticationManager(context: Context?) : AgoraManager(
 
     init {
         // Read the server url and expiry time from the config file
-        serverUrl = config!!.optString("serverUrl")
-        tokenExpiryTime = config!!.optInt("tokenExpiryTime", 600)
+        serverUrl = config?.optString("serverUrl")?:""
+        tokenExpiryTime = config?.optInt("tokenExpiryTime", 600) ?:600
         baseEventHandler = super.iRtcEngineEventHandler
     }
 
@@ -44,7 +44,7 @@ open class AuthenticationManager(context: Context?) : AgoraManager(
                 fetchToken(channelName, object : TokenCallback {
                     override fun onTokenReceived(rtcToken: String?) {
                         // Use the token to renew
-                        agoraEngine!!.renewToken(rtcToken)
+                        agoraEngine?.renewToken(rtcToken)
                         sendMessage("Token renewed")
                     }
 
@@ -58,16 +58,16 @@ open class AuthenticationManager(context: Context?) : AgoraManager(
 
             // Reuse events handlers from the base class
             override fun onUserJoined(uid: Int, elapsed: Int) {
-                baseEventHandler!!.onUserJoined(uid, elapsed)
+                baseEventHandler?.onUserJoined(uid, elapsed)
             }
 
             override fun onJoinChannelSuccess(channel: String, uid: Int, elapsed: Int) {
-                baseEventHandler!!.onJoinChannelSuccess(channel, uid, elapsed)
+                baseEventHandler?.onJoinChannelSuccess(channel, uid, elapsed)
                 handleOnJoinChannelSuccess(channel, uid, elapsed)
             }
 
             override fun onUserOffline(uid: Int, reason: Int) {
-                baseEventHandler!!.onUserOffline(uid, reason)
+                baseEventHandler?.onUserOffline(uid, reason)
             }
 
             override fun onConnectionStateChanged(state: Int, reason: Int) {
@@ -95,7 +95,7 @@ open class AuthenticationManager(context: Context?) : AgoraManager(
 
     fun fetchToken(channelName: String, callback: TokenCallback) {
         // Use the uid from the config file if not specified
-        fetchToken(channelName, config!!.optInt("uid"), callback)
+        fetchToken(channelName, config?.optInt("uid")?:0, callback)
     }
 
     fun fetchToken(channelName: String, uid: Int, callback: TokenCallback) {
@@ -121,7 +121,7 @@ open class AuthenticationManager(context: Context?) : AgoraManager(
                 if (response.isSuccessful) {
                     try {
                         // Extract rtcToken from the response
-                        val responseBody = response.body!!.string()
+                        val responseBody = response.body?.string()
                         val jsonObject = JSONObject(responseBody)
                         val rtcToken = jsonObject.getString("rtcToken")
                         // Return the token
@@ -163,7 +163,7 @@ open class AuthenticationManager(context: Context?) : AgoraManager(
             })
             0
         } else { // use the token from the config.json file
-            val token = config!!.optString("rtcToken")
+            val token = config?.optString("rtcToken")
             joinChannel(channelName, token)
         }
     }
